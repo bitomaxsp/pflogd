@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <net/if.h>
+
 
 static pcap_t* hpcap_handle;
 static char hostname[1024];
@@ -13,11 +15,40 @@ static char msg_buf[4096];
 static char error_descr[PCAP_ERRBUF_SIZE];
 static int snaplen = 0;
 
+/* Taken from APPLE xnu-3789.51.2 if_pglog.h */
+#define PFLOG_RULESET_NAME_SIZE 16
+
+struct pfloghdr {
+  u_int8_t  length;
+  sa_family_t af;
+  u_int8_t  action;
+  u_int8_t  reason;
+  char    ifname[IFNAMSIZ];
+  char    ruleset[PFLOG_RULESET_NAME_SIZE];
+  u_int32_t rulenr;
+  u_int32_t subrulenr;
+  uid_t   uid;
+  pid_t   pid;
+  uid_t   rule_uid;
+  pid_t   rule_pid;
+  u_int8_t  dir;
+  u_int8_t  pad[3];
+};
+
 static void
 process_packet(u_char* args,
                const struct pcap_pkthdr* header,
                const u_char* packet)
 {
+  if (*packet > sizeof(struct pfloghdr)) {
+    printf("Packet size(%d) > pfloghdr size(%lu). Skipping packet...\n", *packet, sizeof(struct pfloghdr));
+    return;
+  }
+
+  struct pfloghdr *hdr = (struct pfloghdr *)packet;
+  // bzero(&hdr, sizeof (hdr));
+
+
 }
 
 static void
