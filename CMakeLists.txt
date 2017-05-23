@@ -5,3 +5,4 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_BUILD_TYPE Release)
 
 add_executable(pflogd pflogd.c)
+target_link_libraries(pflogd pcap)
