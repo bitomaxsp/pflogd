@@ -136,7 +136,7 @@ static void process_packet(u_char *args, const struct pcap_pkthdr *header,
   char msg_buf[2048], *p;
   memset_s(msg_buf, sizeof(msg_buf), 0, sizeof(msg_buf));
   p = msg_buf;
-  sret = snprintf(msg_buf, sizeof(msg_buf), "%.2u:%.2u:%.2u.%06u ", hour, min,
+  sret = snprintf(p, sizeof(msg_buf) - wr, "%.2u:%.2u:%.2u.%06u ", hour, min,
                   sec, usec);
   if (sret >= (int)sizeof(msg_buf) || -1 == sret)
     return;
@@ -194,12 +194,17 @@ static void process_packet(u_char *args, const struct pcap_pkthdr *header,
 
     const void *const transport_layer_packet =
         (packet + BPF_WORDALIGN(hdr->length) + size_ip);
+
     uint16_t src_port = 0, dst_port = 0;
+    if (get_ports(transport_layer_packet, ip_hdr->ip_p, &src_port, &dst_port)) {
 
-    get_ports(transport_layer_packet, ip_hdr->ip_p, &src_port, &dst_port);
+      sret = snprintf(p, sizeof(msg_buf) - wr, "%s(%u) -> %s(%u) - ",
+                      inet_ntoa(ip_src), src_port, inet_ntoa(ip_dst), dst_port);
+    } else {
+      sret = snprintf(p, sizeof(msg_buf) - wr, "%s -> %s - ", inet_ntoa(ip_src),
+                      inet_ntoa(ip_dst));
+    }
 
-    sret = snprintf(p, sizeof(msg_buf) - wr, "%s(%u) -> %s(%u) - ",
-                    inet_ntoa(ip_src), src_port, inet_ntoa(ip_dst), dst_port);
     if (sret >= (int)sizeof(msg_buf) || -1 == sret)
       return;
     p += sret;
@@ -215,9 +220,6 @@ static void process_packet(u_char *args, const struct pcap_pkthdr *header,
     const void *const transport_layer_packet =
         (packet + BPF_WORDALIGN(hdr->length) + sizeof(struct ip6_hdr));
 
-    uint16_t src_port = 0, dst_port = 0;
-    get_ports(transport_layer_packet, ip_p, &src_port, &dst_port);
-
     struct in6_addr ip6_src;
     memcpy(&ip6_src, &ip_hdr->ip6_src, sizeof(ip_hdr->ip6_src));
 
@@ -230,8 +232,14 @@ static void process_packet(u_char *args, const struct pcap_pkthdr *header,
     char ip6addr_d[INET6_ADDRSTRLEN];
     inet_ntop(AF_INET6, &ip6_dst, ip6addr_d, INET6_ADDRSTRLEN);
 
-    sret = snprintf(p, sizeof(msg_buf) - wr, "%s(%u) -> %s(%u) - ", ip6addr_s,
-                    src_port, ip6addr_d, dst_port);
+    uint16_t src_port = 0, dst_port = 0;
+    if (get_ports(transport_layer_packet, ip_p, &src_port, &dst_port)) {
+      sret = snprintf(p, sizeof(msg_buf) - wr, "%s(%u) -> %s(%u) - ", ip6addr_s,
+                      src_port, ip6addr_d, dst_port);
+    } else {
+      sret = snprintf(p, sizeof(msg_buf) - wr, "%s -> %s - ", ip6addr_s,
+                      ip6addr_d);
+    }
 
     if (sret >= (int)sizeof(msg_buf) || -1 == sret)
       return;
@@ -242,20 +250,16 @@ static void process_packet(u_char *args, const struct pcap_pkthdr *header,
   }
 
   struct protoent *const proto_desc = getprotobynumber(proto_num);
+  const char *pname = "unknown";
   if (NULL != proto_desc) {
-    sret = snprintf(p, sizeof(msg_buf) - wr, "%s", proto_desc->p_name);
-    if (sret >= (int)sizeof(msg_buf) || -1 == sret)
-      return;
-    p += sret;
-    wr += (uint32_t)(sret);
-
-  } else {
-    sret = snprintf(p, sizeof(msg_buf) - wr, "unknown");
-    if (sret >= (int)sizeof(msg_buf) || -1 == sret)
-      return;
-    p += sret;
-    wr += (uint32_t)(sret);
+    pname = proto_desc->p_name;
   }
+
+  sret = snprintf(p, sizeof(msg_buf) - wr, "%s", pname);
+  if (sret >= (int)sizeof(msg_buf) || -1 == sret)
+    return;
+  p += sret;
+  wr += (uint32_t)(sret);
 
 done:
   strcat(msg_buf, "\n");
