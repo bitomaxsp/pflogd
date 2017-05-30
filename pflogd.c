@@ -148,9 +148,9 @@ static void process_packet(u_char *args, const struct pcap_pkthdr *header,
   const struct pfloghdr *hdr = &packhdr; //(struct pfloghdr*)packet;
 
   if (hdr->subrulenr == (uint32_t)-1) {
-    sret = snprintf(p, sizeof(msg_buf) - wr, "rule %u/", ntohl(hdr->rulenr));
+    sret = snprintf(p, sizeof(msg_buf) - wr, "rule %d/", ntohl(hdr->rulenr));
   } else {
-    sret = snprintf(p, sizeof(msg_buf) - wr, "rule %u.%s.%u/",
+    sret = snprintf(p, sizeof(msg_buf) - wr, "rule %d.%s.%u/",
                     ntohl(hdr->rulenr), hdr->ruleset, ntohl(hdr->subrulenr));
   }
   if (sret >= (int)sizeof(msg_buf) || -1 == sret)
